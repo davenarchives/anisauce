@@ -286,7 +286,6 @@
   margin-bottom: 0;
   border-radius: 32px 32px 0 0;
   background:
-    linear-gradient(115deg, rgba(3, 6, 14, 0.25), rgba(3, 6, 14, 0.85)),
     var(--banner-url, radial-gradient(circle at 35% 25%, #182647, #05070f));
   background-size: cover;
   background-position: center;
