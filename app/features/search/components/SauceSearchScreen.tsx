@@ -6,6 +6,7 @@ import { SearchForm } from "./SearchForm";
 import { SearchStatus } from "./SearchStatus";
 import { useSauceSearch } from "../hooks/useSauceSearch";
 import { APP_TAGLINE, APP_TITLE, SEARCH_INSTRUCTIONS } from "../constants";
+import { ThemeToggle } from "@/app/features/theme/components/ThemeToggle";
 
 export function SauceSearchScreen() {
   const {
@@ -35,6 +36,9 @@ export function SauceSearchScreen() {
       onDrop={handleDrop}
     >
       <div className={styles.content}>
+        <div className={styles.toolbar}>
+          <ThemeToggle />
+        </div>
         <SearchHero
           title={APP_TITLE}
           tagline={APP_TAGLINE}

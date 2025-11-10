@@ -1,0 +1,48 @@
+.themeToggle {
+  width: 58px;
+  height: 30px;
+  border-radius: 999px;
+  border: 1px solid var(--color-toggle-border);
+  background: var(--color-toggle-track);
+  padding: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  cursor: pointer;
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.themeToggleActive {
+  justify-content: flex-end;
+  background: var(--color-toggle-track-active);
+  border-color: var(--color-toggle-border-active);
+}
+
+.thumb {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--color-toggle-thumb);
+  color: var(--color-toggle-icon);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  transition: background 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
+  box-shadow: 0 2px 6px var(--color-toggle-shadow);
+}
+
+.thumbActive {
+  background: var(--color-toggle-thumb-active);
+  color: var(--color-toggle-icon-active);
+  box-shadow: 0 3px 10px var(--color-toggle-shadow-active);
+}
+
+.themeToggle:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+.themeToggle i {
+  pointer-events: none;
+}
