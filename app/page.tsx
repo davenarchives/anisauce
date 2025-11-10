@@ -1,17 +1,17 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element */
-
 import type {
   ChangeEvent,
   ClipboardEvent as ReactClipboardEvent,
-  CSSProperties,
   DragEvent,
   FormEvent,
 } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { New_Rocker } from "next/font/google";
 import styles from "./page.module.css";
+import type { SearchResult } from "./types";
+import { saveResult } from "./lib/storage";
 
 const newRocker = New_Rocker({
   subsets: ["latin"],
@@ -50,30 +50,16 @@ type AniListMedia = {
   episodes?: number | null;
 };
 
-type SearchResult = {
-  animeTitle: string;
-  episode?: number | null;
-  timestamp?: number | null;
-  similarity: number;
-  description?: string;
-  coverImage?: string;
-  bannerImage?: string | null;
-  siteUrl?: string | null;
-  frameImage?: string | null;
-  videoUrl?: string | null;
-};
-
 type SearchPayload = {
   file?: File;
   url?: string;
   preview?: string | null;
 };
 
-type BannerStyle = CSSProperties & { "--banner-url"?: string };
-
 const instructions = "browse, drop, or ctrl + v to paste a screenshot~";
 
 export default function Home() {
+  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
   const [urlInput, setUrlInput] = useState("");
@@ -82,9 +68,6 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState("");
-  const [result, setResult] = useState<SearchResult | null>(null);
-  const [videoErrored, setVideoErrored] = useState(false);
-  const [videoMuted, setVideoMuted] = useState(true);
 
   useEffect(() => {
     return () => {
@@ -98,7 +81,6 @@ export default function Home() {
     async ({ file, url, preview }: SearchPayload) => {
       try {
         setLoading(true);
-        setResult(null);
         setError(null);
         setStatus("Contacting trace.moe...");
 
@@ -149,10 +131,9 @@ export default function Home() {
           videoUrl: match.video ?? null,
         };
 
-        setResult(card);
-        setVideoErrored(false);
-        setVideoMuted(true);
-        setStatus("Sauce acquired!");
+        saveResult(card);
+        setStatus("Sauce acquired! Sending you to the preview...");
+        router.push("/preview");
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Something unexpected happened.";
@@ -162,7 +143,7 @@ export default function Home() {
         setLoading(false);
       }
     },
-    [],
+    [router],
   );
 
   const handleFileSelection = useCallback(
@@ -251,11 +232,6 @@ export default function Home() {
   };
 
   useEffect(() => {
-    setVideoErrored(false);
-    setVideoMuted(true);
-  }, [result?.videoUrl]);
-
-  useEffect(() => {
     const onWindowPaste = (event: ClipboardEvent) => {
       if (handleClipboardData(event.clipboardData, { silentErrors: true })) {
         event.preventDefault();
@@ -297,11 +273,6 @@ export default function Home() {
   const openFileDialog = () => {
     fileInputRef.current?.click();
   };
-
-  const stillFrame = result?.frameImage ?? previewSrc;
-  const videoUrl =
-    result?.videoUrl && !videoErrored ? buildVideoUrl(result.videoUrl) : null;
-  const hasPreviewMedia = Boolean(videoUrl || stillFrame);
 
   return (
     <main
@@ -353,123 +324,9 @@ export default function Home() {
         {status && <p className={styles.status}>{status}</p>}
         {error && <p className={styles.error}>{error}</p>}
         {loading && <p className={styles.loading}>Searching the multiverse...</p>}
-
-        {hasPreviewMedia && (
-          <section className={styles.resultSection}>
-            <div className={styles.sectionHeader}>
-              <span className={styles.sectionRule} />
-              <span className={styles.sectionLabel}>
-                {result ? "Sauce acquired!" : "Preview"}
-              </span>
-              <span className={styles.sectionRule} />
-            </div>
-            <div className={styles.previewFrame}>
-              {videoUrl ? (
-                <>
-                  <video
-                    className={styles.previewVideo}
-                    key={videoUrl}
-                    poster={stillFrame ?? undefined}
-                    muted={videoMuted}
-                    loop
-                    playsInline
-                    autoPlay
-                    preload="metadata"
-                    crossOrigin="anonymous"
-                    onError={() => setVideoErrored(true)}
-                  >
-                    <source src={videoUrl} type="video/mp4" />
-                  </video>
-                  <button
-                    type="button"
-                    className={styles.soundButton}
-                    onClick={() => setVideoMuted((prev) => !prev)}
-                    aria-label={videoMuted ? "Unmute preview" : "Mute preview"}
-                  >
-                    <i
-                      className={`fa-solid ${videoMuted ? "fa-volume-xmark" : "fa-volume-high"}`}
-                      aria-hidden="true"
-                    />
-                  </button>
-                </>
-              ) : (
-                stillFrame && (
-                  <img src={stillFrame} alt="Uploaded frame preview" loading="lazy" />
-                )
-              )}
-            </div>
-
-            {result && (
-              <article
-                className={`${styles.resultCard} ${
-                  result.bannerImage ? styles.hasBanner : ""
-                }`}
-                style={
-                  result.bannerImage
-                    ? ({ "--banner-url": `url(${result.bannerImage})` } as BannerStyle)
-                    : undefined
-                }
-              >
-                <div className={styles.cardBody}>
-                  <div className={styles.coverWrap}>
-                    {result.coverImage ? (
-                      <img
-                        src={result.coverImage}
-                        alt={`${result.animeTitle} cover art`}
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className={styles.coverFallback}>Ani</div>
-                    )}
-                  </div>
-                  <div className={styles.info}>
-                    <h2 className={styles.resultTitle}>{result.animeTitle}</h2>
-                    <p className={styles.sourceLine}>
-                      sauce:
-                      {typeof result.episode === "number"
-                        ? ` Ep ${result.episode}`
-                        : " unknown episode"}
-                      {typeof result.timestamp === "number"
-                        ? ` at ${formatTimestamp(result.timestamp)}`
-                        : ""}
-                      <span className={styles.similarity}>
-                        {(result.similarity * 100).toFixed(1)}% similarity
-                      </span>
-                    </p>
-                    <p className={styles.description}>
-                      {result.description || "We couldn't load a synopsis for this match."}
-                    </p>
-                    <div className={styles.actionRow}>
-                      {result.siteUrl && (
-                        <a
-                          href={result.siteUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className={styles.actionLink}
-                        >
-                          view on anilist
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </article>
-            )}
-          </section>
-        )}
       </div>
     </main>
   );
-}
-
-function formatTimestamp(value?: number | null) {
-  if (typeof value !== "number" || Number.isNaN(value)) return "00:00";
-  const totalSeconds = Math.max(0, Math.floor(value));
-  const minutes = Math.floor(totalSeconds / 60)
-    .toString()
-    .padStart(2, "0");
-  const seconds = (totalSeconds % 60).toString().padStart(2, "0");
-  return `${minutes}:${seconds}`;
 }
 
 function stripHtml(value?: string | null) {
@@ -507,12 +364,6 @@ function chooseDescription(media: AniListMedia | null) {
     return truncate(stripped, 300);
   }
   return "The second season of Solo Leveling. Mastering his new abilities in secret, Jin-Woo must battle humanity's toughest foes to save his mother. (Source: AniList)";
-}
-
-function buildVideoUrl(base: string) {
-  if (!base) return base;
-  if (base.includes("size=")) return base;
-  return `${base}${base.includes("?") ? "&" : "?"}size=l`;
 }
 
 const ANI_LIST_QUERY = `
