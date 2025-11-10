@@ -25,6 +25,7 @@ type TraceMoeMatch = {
   from?: number | null;
   similarity: number;
   image?: string | null;
+  video?: string | null;
 };
 
 type TraceResponse = {
@@ -59,6 +60,7 @@ type SearchResult = {
   bannerImage?: string | null;
   siteUrl?: string | null;
   frameImage?: string | null;
+  videoUrl?: string | null;
 };
 
 type SearchPayload = {
@@ -81,6 +83,8 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState("");
   const [result, setResult] = useState<SearchResult | null>(null);
+  const [videoErrored, setVideoErrored] = useState(false);
+  const [videoMuted, setVideoMuted] = useState(true);
 
   useEffect(() => {
     return () => {
@@ -142,9 +146,12 @@ export default function Home() {
           bannerImage: media?.bannerImage ?? null,
           siteUrl: media?.siteUrl ?? (media?.id ? `https://anilist.co/anime/${media.id}` : undefined),
           frameImage: match.image ?? preview ?? null,
+          videoUrl: match.video ?? null,
         };
 
         setResult(card);
+        setVideoErrored(false);
+        setVideoMuted(true);
         setStatus("Sauce acquired!");
       } catch (err) {
         const message =
@@ -244,6 +251,11 @@ export default function Home() {
   };
 
   useEffect(() => {
+    setVideoErrored(false);
+    setVideoMuted(true);
+  }, [result?.videoUrl]);
+
+  useEffect(() => {
     const onWindowPaste = (event: ClipboardEvent) => {
       if (handleClipboardData(event.clipboardData, { silentErrors: true })) {
         event.preventDefault();
@@ -286,7 +298,10 @@ export default function Home() {
     fileInputRef.current?.click();
   };
 
-  const displayFrame = result?.frameImage ?? previewSrc;
+  const stillFrame = result?.frameImage ?? previewSrc;
+  const videoUrl =
+    result?.videoUrl && !videoErrored ? buildVideoUrl(result.videoUrl) : null;
+  const hasPreviewMedia = Boolean(videoUrl || stillFrame);
 
   return (
     <main
@@ -339,67 +354,108 @@ export default function Home() {
         {error && <p className={styles.error}>{error}</p>}
         {loading && <p className={styles.loading}>Searching the multiverse...</p>}
 
-        {displayFrame && (
-          <div className={styles.previewFrame}>
-            <img src={displayFrame} alt="Uploaded frame preview" loading="lazy" />
-          </div>
-        )}
-
-        {result && (
-          <article
-            className={`${styles.resultCard} ${
-              result.bannerImage ? styles.hasBanner : ""
-            }`}
-            style={
-              result.bannerImage
-                ? ({ "--banner-url": `url(${result.bannerImage})` } as BannerStyle)
-                : undefined
-            }
-          >
-            <div className={styles.cardBody}>
-              <div className={styles.coverWrap}>
-                {result.coverImage ? (
-                  <img
-                    src={result.coverImage}
-                    alt={`${result.animeTitle} cover art`}
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className={styles.coverFallback}>Ani</div>
-                )}
-              </div>
-              <div className={styles.info}>
-                <h2 className={styles.resultTitle}>{result.animeTitle}</h2>
-                <p className={styles.sourceLine}>
-                  sauce:
-                  {typeof result.episode === "number"
-                    ? ` Ep ${result.episode}`
-                    : " unknown episode"}
-                  {typeof result.timestamp === "number"
-                    ? ` at ${formatTimestamp(result.timestamp)}`
-                    : ""}
-                  <span className={styles.similarity}>
-                    {(result.similarity * 100).toFixed(1)}% similarity
-                  </span>
-                </p>
-                <p className={styles.description}>
-                  {result.description || "We couldn't load a synopsis for this match."}
-                </p>
-                <div className={styles.actionRow}>
-                  {result.siteUrl && (
-                    <a
-                      href={result.siteUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className={styles.actionLink}
-                    >
-                      view on anilist
-                    </a>
-                  )}
-                </div>
-              </div>
+        {hasPreviewMedia && (
+          <section className={styles.resultSection}>
+            <div className={styles.sectionHeader}>
+              <span className={styles.sectionRule} />
+              <span className={styles.sectionLabel}>
+                {result ? "Sauce acquired!" : "Preview"}
+              </span>
+              <span className={styles.sectionRule} />
             </div>
-          </article>
+            <div className={styles.previewFrame}>
+              {videoUrl ? (
+                <>
+                  <video
+                    className={styles.previewVideo}
+                    key={videoUrl}
+                    poster={stillFrame ?? undefined}
+                    muted={videoMuted}
+                    loop
+                    playsInline
+                    autoPlay
+                    preload="metadata"
+                    crossOrigin="anonymous"
+                    onError={() => setVideoErrored(true)}
+                  >
+                    <source src={videoUrl} type="video/mp4" />
+                  </video>
+                  <button
+                    type="button"
+                    className={styles.soundButton}
+                    onClick={() => setVideoMuted((prev) => !prev)}
+                    aria-label={videoMuted ? "Unmute preview" : "Mute preview"}
+                  >
+                    <i
+                      className={`fa-solid ${videoMuted ? "fa-volume-xmark" : "fa-volume-high"}`}
+                      aria-hidden="true"
+                    />
+                  </button>
+                </>
+              ) : (
+                stillFrame && (
+                  <img src={stillFrame} alt="Uploaded frame preview" loading="lazy" />
+                )
+              )}
+            </div>
+
+            {result && (
+              <article
+                className={`${styles.resultCard} ${
+                  result.bannerImage ? styles.hasBanner : ""
+                }`}
+                style={
+                  result.bannerImage
+                    ? ({ "--banner-url": `url(${result.bannerImage})` } as BannerStyle)
+                    : undefined
+                }
+              >
+                <div className={styles.cardBody}>
+                  <div className={styles.coverWrap}>
+                    {result.coverImage ? (
+                      <img
+                        src={result.coverImage}
+                        alt={`${result.animeTitle} cover art`}
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className={styles.coverFallback}>Ani</div>
+                    )}
+                  </div>
+                  <div className={styles.info}>
+                    <h2 className={styles.resultTitle}>{result.animeTitle}</h2>
+                    <p className={styles.sourceLine}>
+                      sauce:
+                      {typeof result.episode === "number"
+                        ? ` Ep ${result.episode}`
+                        : " unknown episode"}
+                      {typeof result.timestamp === "number"
+                        ? ` at ${formatTimestamp(result.timestamp)}`
+                        : ""}
+                      <span className={styles.similarity}>
+                        {(result.similarity * 100).toFixed(1)}% similarity
+                      </span>
+                    </p>
+                    <p className={styles.description}>
+                      {result.description || "We couldn't load a synopsis for this match."}
+                    </p>
+                    <div className={styles.actionRow}>
+                      {result.siteUrl && (
+                        <a
+                          href={result.siteUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={styles.actionLink}
+                        >
+                          view on anilist
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </article>
+            )}
+          </section>
         )}
       </div>
     </main>
@@ -451,6 +507,12 @@ function chooseDescription(media: AniListMedia | null) {
     return truncate(stripped, 300);
   }
   return "The second season of Solo Leveling. Mastering his new abilities in secret, Jin-Woo must battle humanity's toughest foes to save his mother. (Source: AniList)";
+}
+
+function buildVideoUrl(base: string) {
+  if (!base) return base;
+  if (base.includes("size=")) return base;
+  return `${base}${base.includes("?") ? "&" : "?"}size=l`;
 }
 
 const ANI_LIST_QUERY = `
