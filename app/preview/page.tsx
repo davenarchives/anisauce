@@ -109,14 +109,16 @@ export default function PreviewPage() {
           <span className={styles.sectionRule} />
         </div>
 
-        <article
-          className={`${styles.resultCard} ${cardBackdrop ? styles.hasBackdrop : ""}`}
-          style={
-            cardBackdrop
-              ? ({ "--banner-url": `url(${cardBackdrop})` } as CSSProperties)
-              : undefined
-          }
-        >
+        <article className={styles.resultCard}>
+          <div
+            className={styles.cardHero}
+            style={
+              cardBackdrop
+                ? ({ "--banner-url": `url(${cardBackdrop})` } as CSSProperties)
+                : undefined
+            }
+            aria-hidden="true"
+          />
           <div className={styles.cardBody}>
             <div className={styles.coverWrap}>
               {displayCover ? (
