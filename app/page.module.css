@@ -214,7 +214,6 @@
   border-radius: 36px;
   overflow: hidden;
   background: #03060b;
-  border: 1px solid rgba(95, 124, 173, 0.35);
   box-shadow: 0 40px 70px rgba(0, 0, 0, 0.55);
   position: relative;
 }
@@ -273,7 +272,6 @@
   padding: var(--card-padding);
   position: relative;
   background: linear-gradient(180deg, rgba(4, 9, 18, 0.94), rgba(3, 7, 14, 0.99));
-  border: 1px solid rgba(92, 130, 194, 0.45);
   box-shadow: 0 45px 90px rgba(0, 0, 0, 0.55);
   overflow: hidden;
   display: flex;
