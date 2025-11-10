@@ -14,7 +14,7 @@ type SearchFormProps = {
   onPaste: (event: ReactClipboardEvent<HTMLInputElement>) => void;
   onBrowseClick: () => void;
   onFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
-  fileInputRef: RefObject<HTMLInputElement>;
+  fileInputRef: RefObject<HTMLInputElement | null>;
 };
 
 export function SearchForm({
