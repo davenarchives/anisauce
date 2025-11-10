@@ -327,7 +327,6 @@
   border-radius: 0;
   overflow: hidden;
   border: none;
-  box-shadow: 0 26px 60px rgba(2, 5, 16, 0.75);
   background: linear-gradient(135deg, #121a2b, #1f2e47);
   position: relative;
   z-index: 2;
