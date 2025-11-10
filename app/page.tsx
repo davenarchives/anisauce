@@ -4,7 +4,7 @@
 
 import type {
   ChangeEvent,
-  ClipboardEvent,
+  ClipboardEvent as ReactClipboardEvent,
   CSSProperties,
   DragEvent,
   FormEvent,
@@ -174,28 +174,40 @@ export default function Home() {
     [runTraceSearch],
   );
 
+  const submitImageUrl = useCallback(
+    (rawUrl: string, showErrors = true) => {
+      const trimmed = rawUrl.trim();
+      if (!trimmed) {
+        if (showErrors) {
+          setError("Paste an image URL first.");
+        }
+        return false;
+      }
+      try {
+        const parsed = new URL(trimmed);
+        if (!/^https?:/i.test(parsed.protocol)) {
+          throw new Error("Invalid protocol");
+        }
+      } catch {
+        if (showErrors) {
+          setError("That doesn't look like a valid image URL.");
+        }
+        return false;
+      }
+
+      setUrlInput(trimmed);
+      setPreviewSrc(trimmed);
+      setStatus("Finding sauce...");
+      setError(null);
+      runTraceSearch({ url: trimmed, preview: trimmed });
+      return true;
+    },
+    [runTraceSearch],
+  );
+
   const handleUrlSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const trimmed = urlInput.trim();
-
-    if (!trimmed) {
-      setError("Paste an image URL first.");
-      return;
-    }
-
-    try {
-      const url = new URL(trimmed);
-      if (!/^https?:/i.test(url.protocol)) {
-        throw new Error("Invalid protocol");
-      }
-    } catch {
-      setError("That doesn't look like a valid image URL.");
-      return;
-    }
-
-    setPreviewSrc(trimmed);
-    setStatus("Finding sauce...");
-    runTraceSearch({ url: trimmed, preview: trimmed });
+    submitImageUrl(urlInput, true);
   };
 
   const onFileInputChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -206,15 +218,40 @@ export default function Home() {
     }
   };
 
-  const handlePaste = (event: ClipboardEvent<HTMLInputElement>) => {
-    if (event.clipboardData.files?.length) {
-      const file = event.clipboardData.files[0];
-      if (file) {
-        event.preventDefault();
-        handleFileSelection(file);
+  const handleClipboardData = useCallback(
+    (data: DataTransfer | null, { silentErrors = false } = {}) => {
+      if (!data) return false;
+      if (data.files?.length) {
+        const file = data.files[0];
+        if (file) {
+          handleFileSelection(file);
+          return true;
+        }
       }
+      const text = data.getData("text/plain");
+      if (text) {
+        return submitImageUrl(text, !silentErrors);
+      }
+      return false;
+    },
+    [handleFileSelection, submitImageUrl],
+  );
+
+  const handlePaste = (event: ReactClipboardEvent<HTMLInputElement>) => {
+    if (handleClipboardData(event.clipboardData, { silentErrors: false })) {
+      event.preventDefault();
     }
   };
+
+  useEffect(() => {
+    const onWindowPaste = (event: ClipboardEvent) => {
+      if (handleClipboardData(event.clipboardData, { silentErrors: true })) {
+        event.preventDefault();
+      }
+    };
+    window.addEventListener("paste", onWindowPaste);
+    return () => window.removeEventListener("paste", onWindowPaste);
+  }, [handleClipboardData]);
 
   const handleDragEnter = (event: DragEvent<HTMLElement>) => {
     event.preventDefault();
