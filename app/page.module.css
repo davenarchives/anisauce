@@ -268,29 +268,51 @@
 
 .resultCard {
   width: 100%;
-  border-radius: 28px;
-  padding: 2rem;
+  border-radius: 32px;
+  padding: clamp(1.5rem, 3vw, 2.35rem);
   position: relative;
-  background: linear-gradient(135deg, rgba(6, 16, 28, 0.95), rgba(8, 18, 32, 0.96));
-  border: 1px solid rgba(64, 94, 140, 0.45);
+  background: linear-gradient(180deg, rgba(4, 9, 18, 0.92), rgba(3, 7, 14, 0.98));
+  border: 1px solid rgba(92, 130, 194, 0.45);
   box-shadow: 0 45px 90px rgba(0, 0, 0, 0.55);
   overflow: hidden;
 }
 
-.resultCard::before {
+.resultCard::before,
+.resultCard::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at top, rgba(77, 119, 255, 0.25), transparent 55%);
-  opacity: 0.75;
   pointer-events: none;
 }
 
-.hasBanner::before {
-  background:
-    linear-gradient(120deg, rgba(5, 10, 15, 0.85), rgba(5, 10, 15, 0.98)),
-    var(--banner-url) center / cover;
+.resultCard::before {
+  background: radial-gradient(circle at top left, rgba(77, 119, 255, 0.18), transparent 60%);
   opacity: 0.95;
+}
+
+.resultCard::after {
+  background: linear-gradient(
+    180deg,
+    rgba(3, 6, 14, 0),
+    rgba(3, 6, 14, 0.85) 35%,
+    rgba(3, 6, 14, 0.98)
+  );
+}
+
+.hasBackdrop::before {
+  background:
+    linear-gradient(120deg, rgba(3, 6, 14, 0.55), rgba(3, 6, 14, 0.92)),
+    var(--banner-url) center / cover;
+  opacity: 1;
+}
+
+.hasBackdrop::after {
+  background: linear-gradient(
+    180deg,
+    rgba(3, 6, 14, 0.35) 5%,
+    rgba(3, 6, 14, 0.94) 45%,
+    rgba(3, 6, 14, 1)
+  );
 }
 
 .cardBody {
@@ -302,14 +324,15 @@
 }
 
 .coverWrap {
-  width: 150px;
-  min-width: 150px;
-  height: 220px;
+  width: 190px;
+  min-width: 170px;
+  max-width: 190px;
+  height: 260px;
   border-radius: 20px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  box-shadow: 0 26px 45px rgba(0, 0, 0, 0.6);
-  background: linear-gradient(135deg, #151f32, #1f2e47);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 26px 60px rgba(2, 5, 16, 0.75);
+  background: linear-gradient(135deg, #121a2b, #1f2e47);
 }
 
 .coverWrap img {
@@ -329,42 +352,70 @@
   font-size: 1rem;
   letter-spacing: 0.3em;
   text-transform: uppercase;
+  background: linear-gradient(135deg, rgba(32, 48, 78, 0.6), rgba(16, 24, 45, 0.9));
 }
 
 .info {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.8rem;
+  gap: 1rem;
   text-align: left;
   color: #d9e4ff;
 }
 
 .resultTitle {
   margin: 0;
-  font-size: 1.5rem;
-  letter-spacing: 0.05em;
+  font-size: 1.65rem;
+  letter-spacing: 0.03em;
+  color: #f7fbff;
+  font-weight: 600;
 }
 
 .sourceLine {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 1rem;
   letter-spacing: 0.08em;
-  color: #9fc4ff;
+  color: #c5dafd;
   text-transform: lowercase;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.metaLine {
+  margin: 0;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #d9e4ff;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.metaPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 999px;
+  border: 1px solid rgba(120, 170, 255, 0.45);
+  background: rgba(18, 31, 58, 0.8);
+  padding: 0.2rem 0.9rem;
+  color: inherit;
 }
 
 .similarity {
-  margin-left: 0.5rem;
-  color: #75ffd9;
+  margin-left: 0.25rem;
+  color: #7bffd7;
   font-weight: 600;
 }
 
 .description {
   margin: 0;
-  font-size: 0.95rem;
-  line-height: 1.6;
-  color: #c0ccdf;
+  font-size: 1rem;
+  line-height: 1.65;
+  color: #cdd7ea;
 }
 
 .actionRow {

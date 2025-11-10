@@ -12,14 +12,33 @@ import { New_Rocker } from "next/font/google";
 import styles from "./page.module.css";
 import type { SearchResult } from "./types";
 import { saveResult } from "./lib/storage";
+import { traceInstance, aniListInstance, ANI_LIST_QUERY } from "./lib/api";
 
 const newRocker = New_Rocker({
   subsets: ["latin"],
   weight: "400",
 });
 
+type TraceMoeAniListInfo = {
+  id?: number;
+  idMal?: number | null;
+  title?: {
+    english?: string | null;
+    romaji?: string | null;
+    native?: string | null;
+  };
+  coverImage?: {
+    extraLarge?: string | null;
+    large?: string | null;
+    medium?: string | null;
+  };
+  bannerImage?: string | null;
+  siteUrl?: string | null;
+  episodes?: number | null;
+};
+
 type TraceMoeMatch = {
-  anilist: number;
+  anilist: number | TraceMoeAniListInfo | null;
   filename?: string;
   episode?: number | null;
   from?: number | null;
@@ -34,6 +53,7 @@ type TraceResponse = {
 
 type AniListMedia = {
   id: number;
+  idMal?: number | null;
   title?: {
     english?: string | null;
     romaji?: string | null;
@@ -46,6 +66,8 @@ type AniListMedia = {
     medium?: string | null;
   };
   bannerImage?: string | null;
+  seasonYear?: number | null;
+  averageScore?: number | null;
   siteUrl?: string | null;
   episodes?: number | null;
 };
@@ -84,27 +106,24 @@ export default function Home() {
         setError(null);
         setStatus("Contacting trace.moe...");
 
-        let response: Response;
-        if (file) {
-          const formData = new FormData();
-          formData.append("image", file);
-          response = await fetch("https://api.trace.moe/search?anilistInfo", {
-            method: "POST",
-            body: formData,
-          });
-        } else if (url) {
-          response = await fetch(
-            `https://api.trace.moe/search?anilistInfo&url=${encodeURIComponent(url)}`,
-          );
-        } else {
+        const traceParams = { anilistInfo: true };
+        const response = await (async () => {
+          if (file) {
+            const formData = new FormData();
+            formData.append("image", file);
+            return traceInstance.post("", formData, {
+              params: traceParams,
+            });
+          }
+          if (url) {
+            return traceInstance.get("", {
+              params: { ...traceParams, url },
+            });
+          }
           throw new Error("Provide an image file or URL first.");
-        }
+        })();
 
-        if (!response.ok) {
-          throw new Error("trace.moe could not process this image.");
-        }
-
-        const data: TraceResponse = await response.json();
+        const data: TraceResponse = response.data;
         const match = data.result?.[0];
 
         if (!match) {
@@ -112,21 +131,41 @@ export default function Home() {
         }
 
         setStatus("Fetching anime details...");
-        const media = await fetchAniListMedia(match.anilist);
+        const traceInfo = getTraceAniListInfo(match.anilist);
+        const aniListId = resolveAniListId(match.anilist);
+        const media = aniListId ? await fetchAniListMedia(aniListId) : null;
+        const fallbackTitle =
+          pickTraceTitle(traceInfo) ?? sanitizeFilename(match.filename);
+
+        const traceCoverImage = pickTraceCoverImage(traceInfo);
+
+        const aniListCoverImage =
+          media?.coverImage?.extraLarge ??
+          media?.coverImage?.large ??
+          media?.coverImage?.medium ??
+          traceCoverImage ??
+          null;
+
+        const bannerImage =
+          media?.bannerImage ??
+          traceInfo?.bannerImage ??
+          aniListCoverImage ??
+          null;
 
         const card: SearchResult = {
-          animeTitle: pickTitle(media, match),
-          episode: match.episode ?? media?.episodes ?? null,
+          animeTitle: pickTitle(media, fallbackTitle),
+          episode: match.episode ?? media?.episodes ?? traceInfo?.episodes ?? null,
           timestamp: match.from ?? null,
           similarity: match.similarity ?? 0,
           description: chooseDescription(media),
-          coverImage:
-            media?.coverImage?.extraLarge ??
-            media?.coverImage?.large ??
-            media?.coverImage?.medium ??
-            undefined,
-          bannerImage: media?.bannerImage ?? null,
-          siteUrl: media?.siteUrl ?? (media?.id ? `https://anilist.co/anime/${media.id}` : undefined),
+          coverImage: aniListCoverImage ?? match.image ?? preview ?? undefined,
+          bannerImage,
+          seasonYear: media?.seasonYear ?? null,
+          averageScore: media?.averageScore ?? null,
+          siteUrl:
+            media?.siteUrl ??
+            traceInfo?.siteUrl ??
+            (aniListId ? `https://anilist.co/anime/${aniListId}` : undefined),
           frameImage: match.image ?? preview ?? null,
           videoUrl: match.video ?? null,
         };
@@ -348,14 +387,58 @@ function truncate(text: string, length: number) {
   return text.length > length ? `${text.slice(0, length - 1)}...` : text;
 }
 
-function pickTitle(media: AniListMedia | null, match: TraceMoeMatch) {
+function sanitizeFilename(name?: string | null) {
+  if (!name) return null;
+  let value = name;
+  value = value.replace(/\.[a-z0-9]{2,4}$/i, " ");
+  value = value.replace(/[\[\(][^\]\)]+[\]\)]/g, " ");
+  value = value.replace(/\b(BD|WEB[- ]?DL|RAW|x264|x265|AAC|FLAC|1080p|720p|480p|HEVC|HDR|MP4|MKV)\b/gi, " ");
+  value = value.replace(/[-_.]/g, " ");
+  value = value.replace(/\s+/g, " ").trim();
+  return value || null;
+}
+
+function getTraceAniListInfo(value: TraceMoeMatch["anilist"]) {
+  if (value && typeof value === "object") {
+    return value;
+  }
+  return null;
+}
+
+function resolveAniListId(value: TraceMoeMatch["anilist"]) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  const info = getTraceAniListInfo(value);
+  if (typeof info?.id === "number" && Number.isFinite(info.id)) {
+    return info.id;
+  }
+  return null;
+}
+
+function pickTraceTitle(info: TraceMoeAniListInfo | null) {
+  if (!info?.title) return null;
+  return info.title.english || info.title.romaji || info.title.native || null;
+}
+
+function pickTraceCoverImage(info: TraceMoeAniListInfo | null) {
+  if (!info?.coverImage) return null;
   return (
+    info.coverImage.extraLarge ||
+    info.coverImage.large ||
+    info.coverImage.medium ||
+    null
+  );
+}
+
+function pickTitle(media: AniListMedia | null, fallbackName: string | null) {
+  const title =
     media?.title?.english ||
     media?.title?.romaji ||
     media?.title?.native ||
-    match.filename ||
-    "Unknown title"
-  );
+    fallbackName ||
+    "Unknown title";
+  return title;
 }
 
 function chooseDescription(media: AniListMedia | null) {
@@ -363,52 +446,16 @@ function chooseDescription(media: AniListMedia | null) {
   if (stripped) {
     return truncate(stripped, 300);
   }
-  return "The second season of Solo Leveling. Mastering his new abilities in secret, Jin-Woo must battle humanity's toughest foes to save his mother. (Source: AniList)";
+  return "Synopsis unavailable on AniList right now. Try another frame or check again later.";
 }
-
-const ANI_LIST_QUERY = `
-  query ($id: Int) {
-    Media(id: $id, type: ANIME) {
-      id
-      title {
-        romaji
-        english
-        native
-      }
-      description(asHtml: false)
-      coverImage {
-        extraLarge
-        large
-        medium
-      }
-      bannerImage
-      episodes
-      siteUrl
-    }
-  }
-`;
 
 async function fetchAniListMedia(id: number): Promise<AniListMedia | null> {
   try {
-    const response = await fetch("https://graphql.anilist.co", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({
-        query: ANI_LIST_QUERY,
-        variables: { id },
-      }),
+    const response = await aniListInstance.post("", {
+      query: ANI_LIST_QUERY,
+      variables: { id },
     });
-
-    if (!response.ok) {
-      console.warn("AniList request failed", response.statusText);
-      return null;
-    }
-
-    const payload = await response.json();
-    return payload.data?.Media ?? null;
+    return response.data?.data?.Media ?? null;
   } catch (error) {
     console.error("AniList fetch error", error);
     return null;

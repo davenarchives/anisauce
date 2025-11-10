@@ -9,4 +9,6 @@ export type SearchResult = {
   siteUrl?: string | null;
   frameImage?: string | null;
   videoUrl?: string | null;
+  seasonYear?: number | null;
+  averageScore?: number | null;
 };

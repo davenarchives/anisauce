@@ -52,6 +52,9 @@ export default function PreviewPage() {
   }
 
   const stillFrame = result.frameImage;
+  const displayCover = result.coverImage ?? null;
+  const cardBackdrop = result.bannerImage ?? displayCover ?? result.frameImage ?? null;
+  const similarityPercent = Math.max(0, Math.round(result.similarity * 100));
 
   return (
     <main className={styles.resultScreen}>
@@ -107,19 +110,17 @@ export default function PreviewPage() {
         </div>
 
         <article
-          className={`${styles.resultCard} ${
-            result.bannerImage ? styles.hasBanner : ""
-          }`}
+          className={`${styles.resultCard} ${cardBackdrop ? styles.hasBackdrop : ""}`}
           style={
-            result.bannerImage
-              ? ({ "--banner-url": `url(${result.bannerImage})` } as CSSProperties)
+            cardBackdrop
+              ? ({ "--banner-url": `url(${cardBackdrop})` } as CSSProperties)
               : undefined
           }
         >
           <div className={styles.cardBody}>
             <div className={styles.coverWrap}>
-              {result.coverImage ? (
-                <img src={result.coverImage} alt={`${result.animeTitle} cover art`} />
+              {displayCover ? (
+                <img src={displayCover} alt={`${result.animeTitle} cover art`} />
               ) : (
                 <div className={styles.coverFallback}>Ani</div>
               )}
@@ -133,9 +134,21 @@ export default function PreviewPage() {
                   ? ` at ${formatTimestamp(result.timestamp)}`
                   : ""}
                 <span className={styles.similarity}>
-                  {(result.similarity * 100).toFixed(1)}% similarity
+                  {similarityPercent}% Similarity
                 </span>
               </p>
+              {(result.seasonYear || typeof result.averageScore === "number") && (
+                <p className={styles.metaLine}>
+                  {result.seasonYear && (
+                    <span className={styles.metaPill}>Season Year: {result.seasonYear}</span>
+                  )}
+                  {typeof result.averageScore === "number" && (
+                    <span className={styles.metaPill}>
+                      AniList Score: {result.averageScore}%
+                    </span>
+                  )}
+                </p>
+              )}
               <p className={styles.description}>
                 {result.description || "We couldn't load a synopsis for this match."}
               </p>
