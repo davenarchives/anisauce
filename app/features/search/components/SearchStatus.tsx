@@ -11,7 +11,7 @@ export function SearchStatus({ status, error, loading }: SearchStatusProps) {
     <>
       {status && <p className={styles.status}>{status}</p>}
       {error && <p className={styles.error}>{error}</p>}
-      {loading && <p className={styles.loading}>Searching the multiverse...</p>}
+      {loading && <p className={styles.loading}>searching the multiverse...</p>}
     </>
   );
 }

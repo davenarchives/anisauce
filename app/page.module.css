@@ -160,7 +160,7 @@
   color: var(--color-text-loading);
   font-size: 0.85rem;
   letter-spacing: 0.12em;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 
 .resultScreen {
