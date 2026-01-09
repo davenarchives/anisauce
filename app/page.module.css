@@ -513,3 +513,22 @@
     margin-top: 0;
   }
 }
+
+.loadingOverlay {
+  position: fixed;
+  inset: 0;
+  background-color: color-mix(in srgb, var(--color-bg-base) 90%, transparent);
+  backdrop-filter: blur(5px);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.loadingOverlay :global(.fa-solid) {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+}
+
