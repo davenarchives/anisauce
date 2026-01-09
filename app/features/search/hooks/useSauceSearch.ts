@@ -6,16 +6,10 @@ import type {
   DragEvent,
   FormEvent,
 } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { saveResult } from "@/app/lib/storage";
-import { buildResultFromMatch } from "../services/resultBuilder";
-import { searchTraceMatch } from "../services/traceSearch";
-import type { TraceSearchPayload } from "../types";
-
-type ClipboardOptions = {
-  silentErrors?: boolean;
-};
+import { useTraceSearch } from "./useTraceSearch";
+import { usePasteHandler } from "./usePasteHandler";
 
 export function useSauceSearch() {
   const router = useRouter();
@@ -24,69 +18,49 @@ export function useSauceSearch() {
   const [urlInput, setUrlInput] = useState("");
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState("");
 
-  useEffect(() => {
-    return () => {
-      if (previewSrc?.startsWith("blob:")) {
-        URL.revokeObjectURL(previewSrc);
-      }
-    };
-  }, [previewSrc]);
-
-  const runTraceSearch = useCallback(
-    async ({ file, url, preview }: TraceSearchPayload) => {
-      try {
-        setLoading(true);
-        setError(null);
-        setStatus("Contacting trace.moe...");
-
-        const match = await searchTraceMatch({ file, url });
-
-        setStatus("Fetching anime details...");
-        const card = await buildResultFromMatch(match, preview ?? null);
-
-        saveResult(card);
-        setStatus("Sauce acquired! Sending you to the preview...");
-        router.push("/preview");
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Something unexpected happened.";
-        setError(message);
-        setStatus("Try another frame or URL.");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [router],
-  );
+  const {
+    executeSearch,
+    loading,
+    error,
+    status,
+    setState: setSearchState,
+  } = useTraceSearch();
 
   const handleFileSelection = useCallback(
     (file: File) => {
       if (!file.type.startsWith("image/")) {
-        setError("Please choose an image file.");
+        setSearchState((prev) => ({
+          ...prev,
+          error: "Please choose an image file.",
+        }));
         return;
       }
 
       const preview = URL.createObjectURL(file);
       setPreviewSrc(preview);
-      setStatus("Finding sauce...");
       setUrlInput("");
-      runTraceSearch({ file, preview });
+
+      executeSearch({ file, preview }, () => {
+        setSearchState((prev) => ({
+          ...prev,
+          status: "Sauce acquired! Sending you to the preview...",
+        }));
+        router.push("/preview");
+      });
     },
-    [runTraceSearch],
+    [executeSearch, router, setSearchState],
   );
 
   const submitImageUrl = useCallback(
-    (rawUrl: string, showErrors = true) => {
+    (rawUrl: string) => {
       const trimmed = rawUrl.trim();
       if (!trimmed) {
-        if (showErrors) {
-          setError("Paste an image URL first.");
-        }
-        return false;
+        setSearchState((prev) => ({
+          ...prev,
+          error: "Paste an image URL first.",
+        }));
+        return;
       }
       try {
         const parsed = new URL(trimmed);
@@ -94,26 +68,32 @@ export function useSauceSearch() {
           throw new Error("Invalid protocol");
         }
       } catch {
-        if (showErrors) {
-          setError("That doesn't look like a valid image URL.");
-        }
-        return false;
+        setSearchState((prev) => ({
+          ...prev,
+          error: "That doesn't look like a valid image URL.",
+        }));
+        return;
       }
 
       setUrlInput(trimmed);
       setPreviewSrc(trimmed);
-      setStatus("Finding sauce...");
-      setError(null);
-      runTraceSearch({ url: trimmed, preview: trimmed });
-      return true;
+      setSearchState((prev) => ({ ...prev, error: null }));
+
+      executeSearch({ url: trimmed, preview: trimmed }, () => {
+        setSearchState((prev) => ({
+          ...prev,
+          status: "Sauce acquired! Sending you to the preview...",
+        }));
+        router.push("/preview");
+      });
     },
-    [runTraceSearch],
+    [executeSearch, router, setSearchState],
   );
 
   const handleUrlSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      submitImageUrl(urlInput, true);
+      submitImageUrl(urlInput);
     },
     [submitImageUrl, urlInput],
   );
@@ -129,43 +109,11 @@ export function useSauceSearch() {
     [handleFileSelection],
   );
 
-  const handleClipboardData = useCallback(
-    (data: DataTransfer | null, options: ClipboardOptions = {}) => {
-      if (!data) return false;
-      if (data.files?.length) {
-        const file = data.files[0];
-        if (file) {
-          handleFileSelection(file);
-          return true;
-        }
-      }
-      const text = data.getData("text/plain");
-      if (text) {
-        return submitImageUrl(text, !options.silentErrors);
-      }
-      return false;
-    },
-    [handleFileSelection, submitImageUrl],
-  );
-
-  const handlePaste = useCallback(
-    (event: ReactClipboardEvent<HTMLInputElement>) => {
-      if (handleClipboardData(event.clipboardData, { silentErrors: false })) {
-        event.preventDefault();
-      }
-    },
-    [handleClipboardData],
-  );
-
-  useEffect(() => {
-    const onWindowPaste = (event: ClipboardEvent) => {
-      if (handleClipboardData(event.clipboardData, { silentErrors: true })) {
-        event.preventDefault();
-      }
-    };
-    window.addEventListener("paste", onWindowPaste);
-    return () => window.removeEventListener("paste", onWindowPaste);
-  }, [handleClipboardData]);
+  const { handleReactPaste } = usePasteHandler({
+    onFile: handleFileSelection,
+    onUrl: submitImageUrl,
+    attachGlobal: true, // Existing behavior attaches global paste on home page
+  });
 
   const handleDragEnter = useCallback((event: DragEvent<HTMLElement>) => {
     event.preventDefault();
@@ -204,9 +152,9 @@ export function useSauceSearch() {
   }, []);
 
   const onUrlChange = useCallback((value: string) => {
-    setError(null);
+    setSearchState((prev) => ({ ...prev, error: null }));
     setUrlInput(value);
-  }, []);
+  }, [setSearchState]);
 
   return {
     urlInput,
@@ -214,7 +162,7 @@ export function useSauceSearch() {
     handleUrlSubmit,
     fileInputRef,
     onFileInputChange,
-    handlePaste,
+    handlePaste: handleReactPaste,
     dragActive,
     handleDragEnter,
     handleDragLeave,
